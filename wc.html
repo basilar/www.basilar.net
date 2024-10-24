@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>wc</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            gap: 1px;
+        }
+
+        .panel {
+            position: relative;
+            flex: 1;
+            min-width: 0;
+            resize: horizontal;
+            overflow: hidden;
+            background: #111111;
+        }
+
+        .panel:last-child {
+            resize: none;
+            padding-right: 0;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+    </style>
+    <script>
+        function extractHashURLs(htmlContent) {
+            const timeUrlRegex = /https?:\/\/[^\s<>"']+\?[^\s<>"']*time=[^\s<>"']+/g; // regular expression to match URLs with time parameter
+            const matches = htmlContent.match(timeUrlRegex) || []; // all matches in the HTML content
+            const uniqueUrls = [...new Set(matches)]; // remove duplicate URLs
+
+            const hashURL = uniqueUrls[0];
+            console.log("hashURL -> " + hashURL)
+            return hashURL;
+        }
+
+        async function getHashValue(hashURL) {
+            response = await fetch(hashURL);
+            if (response.status === 200) {
+                html = await response.text();
+                console.log("html -> " + html)
+                const subMatch = html.match(/sub\s*:\s*['"]([^'"]+)['"]/);
+
+                const hashValue = subMatch[1];
+                console.log("hashValue -> " + hashValue)
+                return hashValue;
+            }
+        }
+
+        async function extractVideoUrl(uniqueId) {
+            const embedUrl = "https://rtsp.me/embed/" + uniqueId;
+            const response = await fetch(embedUrl);
+            if (response.status === 200) {
+                const html = await response.text();
+
+                const hashURL = extractHashURLs(html)
+                const hashValue = await getHashValue(hashURL)
+
+                const timeStamp = new URL(hashURL).searchParams.get('time'); // get timestamp
+
+                const videoURL = "https://lon.rtsp.me/" + hashValue + "/" + timeStamp + "/hls/" + uniqueId + ".m3u8" + "?ip=176.63.27.205";
+                console.log("videoURL -> " + videoURL)
+
+                return videoURL;
+            }
+        }
+
+        async function init() {
+            const uniqueId = "tF8FT4dN"
+            const videoUrl = await extractVideoUrl(uniqueId);
+
+            // get video element and update source
+            const videoElement = document.getElementById('rtsp-dot-me-video');
+            if (videoElement) {
+                videoElement.src = videoUrl;
+                videoElement.load();
+                await videoElement.play();
+            }
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            init();
+        });
+    </script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="panel">
+            <video autoplay muted playsinline controls type="application/x-mpegURL"
+                src="https://s12infocam.infornax.hu/t2/nv/alsoors-strand/playlist.m3u8"></video>
+        </div>
+
+        <div class="panel">
+            <video autoplay muted playsinline controls type="application/x-mpegURL"
+                src="https://s22.ipcamlive.com/streams/16c6aize1np4hxsef/stream.m3u8"></video>
+        </div>
+
+        <!-- 
+                embedded   -> https://streamedian.com/saas/embed/?s=cnRzcDovL2FkbWluOkMzMDBocDZAMTk1LjIyOC4zLjkyL3N0cmVhbTE=&r=MTI4MHg3MjA=&w=d3NzOi8vc3RyZWFtZWRpYW4uY29tL2RlbW9uc3RyYXRpb24vd3Mv 
+                decoded    -> rtsp://admin:C300hp6@195.228.3.92/stream1
+                recoded    -> https://rtsp.me/embed/tF8FT4dN/
+        -->
+        <div class="panel">
+            <video id="rtsp-dot-me-video" controls autoplay muted playsinline></video>
+        </div>
+
+</html>
