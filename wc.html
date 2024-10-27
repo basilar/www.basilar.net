@@ -41,6 +41,125 @@
         }
     </style>
     <script>
+        function createVideoMonitor(videoElementId, targetUrl, checkInterval = 5000) {
+            let intervalId = null;
+            let consecutiveErrors = 0;
+            const MAX_ERRORS = 3;  // Maximum number of consecutive errors before forced reload
+
+            // Get video element
+            const videoElement = document.getElementById(videoElementId);
+            if (!videoElement) {
+                console.error('Video element not found:', videoElementId);
+                return null;
+            }
+
+            // Status check function
+            function checkVideoStatus() {
+                const status = {
+                    readyState: videoElement.readyState,
+                    paused: videoElement.paused,
+                    ended: videoElement.ended,
+                    error: videoElement.error,
+                    networkState: videoElement.networkState,
+                    currentTime: videoElement.currentTime
+                };
+
+                // Check if video is not playing properly
+                const hasIssue = (
+                    status.paused ||
+                    status.ended ||
+                    status.error ||
+                    status.readyState < 3 ||  // HAVE_FUTURE_DATA = 3
+                    // status.networkState === 2 || // NETWORK_LOADING
+                    status.networkState === 3    // NETWORK_NO_SOURCE
+                );
+
+                if (hasIssue) {
+                    consecutiveErrors++;
+                    console.log('Video playback issue detected:', {
+                        timestamp: new Date().toISOString(),
+                        targetUrl: targetUrl,
+                        status: status
+                    });
+
+                    // Try to recover playback
+                    tryRecoverPlayback(status);
+                } else {
+                    consecutiveErrors = 0;  // Reset error counter if video is playing fine
+                }
+            }
+
+            // Recovery function
+            function tryRecoverPlayback(status) {
+                if (consecutiveErrors >= MAX_ERRORS) {
+                    console.log('Multiple playback issues detected, reloading video source...');
+                    videoElement.src = targetUrl;
+                    consecutiveErrors = 0;
+                }
+
+                if (status.paused || status.ended) {
+                    console.log('Attempting to restart playback...');
+                    videoElement.play().catch(error => {
+                        console.error('Error attempting to play:', error);
+                    });
+                }
+            }
+
+            // Start monitoring
+            function startMonitoring() {
+                if (intervalId) {
+                    console.log('Monitoring already active');
+                    return;
+                }
+
+                // Add event listeners
+                videoElement.addEventListener('error', (e) => {
+                    console.error('Video error event:', e.target.error);
+                });
+
+                videoElement.addEventListener('stalled', () => {
+                    console.log('Video playback stalled');
+                });
+
+                // Start periodic checking
+                intervalId = setInterval(checkVideoStatus, checkInterval);
+                console.log('Video monitoring started');
+
+                // Initial play attempt
+                videoElement.play().catch(error => {
+                    console.error('Initial playback failed:', error);
+                });
+            }
+
+            // Stop monitoring
+            function stopMonitoring() {
+                if (intervalId) {
+                    clearInterval(intervalId);
+                    intervalId = null;
+                    console.log('Video monitoring stopped');
+                }
+            }
+
+            return {
+                start: startMonitoring,
+                stop: stopMonitoring
+            };
+        }
+
+        // Example usage:
+        /*
+        const monitor = createVideoMonitor(
+            'video',  // video element ID
+            'https://example.com/video-stream',  // target URL
+            5000  // check every 5 seconds
+        );
+        
+        // Start monitoring
+        monitor.start();
+        
+        // Stop monitoring (when needed)
+        // monitor.stop();
+        */
         function extractHashURLs(htmlContent) {
             const timeUrlRegex = /https?:\/\/[^\s<>"']+\?[^\s<>"']*time=[^\s<>"']+/g; // regular expression to match URLs with time parameter
             const matches = htmlContent.match(timeUrlRegex) || []; // all matches in the HTML content
@@ -96,6 +215,17 @@
         }
         document.addEventListener('DOMContentLoaded', function () {
             init();
+
+            const monitor = createVideoMonitor(
+            'csopak-strand-video',  // video element ID
+            'https://s22.ipcamlive.com/streams/16qlomj6t3bezaazo/stream.m3u8',  // target URL
+            5000  // check every 5 seconds
+        );
+        
+        
+        monitor.start(); // Start monitoring
+        // monitor.stop(); // Stop monitoring (when needed)
+
         });
     </script>
 </head>
@@ -108,8 +238,8 @@
         </div>
 
         <div class="panel">
-            <video autoplay muted playsinline controls type="application/x-mpegURL"
-                src="https://s22.ipcamlive.com/streams/16c6aize1np4hxsef/stream.m3u8"></video>
+            <video id="csopak-strand-video" autoplay muted playsinline controls type="application/x-mpegURL"
+                src="https://s22.ipcamlive.com/streams/16qlomj6t3bezaazo/stream.m3u8"></video>
         </div>
 
         <!-- 
