@@ -145,21 +145,10 @@
                 stop: stopMonitoring
             };
         }
-
-        // Example usage:
-        /*
-        const monitor = createVideoMonitor(
-            'video',  // video element ID
-            'https://example.com/video-stream',  // target URL
-            5000  // check every 5 seconds
-        );
-        
-        // Start monitoring
-        monitor.start();
-        
-        // Stop monitoring (when needed)
-        // monitor.stop();
-        */
+    
+        // embedded   -> https://streamedian.com/saas/embed/?s=cnRzcDovL2FkbWluOkMzMDBocDZAMTk1LjIyOC4zLjkyL3N0cmVhbTE=&r=MTI4MHg3MjA=&w=d3NzOi8vc3RyZWFtZWRpYW4uY29tL2RlbW9uc3RyYXRpb24vd3Mv 
+        // decoded    -> rtsp://admin:C300hp6@195.228.3.92/stream1
+        // recoded    -> https://rtsp.me/embed/tF8FT4dN/
         function extractHashURLs(htmlContent) {
             const timeUrlRegex = /https?:\/\/[^\s<>"']+\?[^\s<>"']*time=[^\s<>"']+/g; // regular expression to match URLs with time parameter
             const matches = htmlContent.match(timeUrlRegex) || []; // all matches in the HTML content
@@ -201,31 +190,20 @@
             }
         }
 
-        async function init() {
-            const uniqueId = "tF8FT4dN"
-            const videoUrl = await extractVideoUrl(uniqueId);
+        document.addEventListener('DOMContentLoaded', async function () {
+            const sosto_uniqueId = "tF8FT4dN"
+            const sosto_videoUrl = await extractVideoUrl(sosto_uniqueId);
 
-            // get video element and update source
-            const videoElement = document.getElementById('rtsp-dot-me-video');
-            if (videoElement) {
-                videoElement.src = videoUrl;
-                videoElement.load();
-                await videoElement.play();
-            }
-        }
-        document.addEventListener('DOMContentLoaded', function () {
-            init();
+            const webcams = [
+                ['sosto-strand-video', sosto_videoUrl, 3000],
+                ['csopak-strand-video', 'https://s22.ipcamlive.com/streams/16qlomj6t3bezaazo/stream.m3u8', 3000],
+                ['alsoors-strand-video', 'https://s12infocam.infornax.hu/t2/nv/alsoors-strand/playlist.m3u8', 3000]
+            ];
 
-            const monitor = createVideoMonitor(
-            'csopak-strand-video',  // video element ID
-            'https://s22.ipcamlive.com/streams/16qlomj6t3bezaazo/stream.m3u8',  // target URL
-            5000  // check every 5 seconds
-        );
-        
-        
-        monitor.start(); // Start monitoring
-        // monitor.stop(); // Stop monitoring (when needed)
-
+            webcams.forEach(([videoElementId, targetURL, refreshFrequency]) => {
+                const videoMonitor = createVideoMonitor(videoElementId, targetURL, refreshFrequency);
+                videoMonitor.start();
+            });
         });
     </script>
 </head>
@@ -233,22 +211,15 @@
 <body>
     <div class="container">
         <div class="panel">
-            <video autoplay muted playsinline controls type="application/x-mpegURL"
-                src="https://s12infocam.infornax.hu/t2/nv/alsoors-strand/playlist.m3u8"></video>
+            <video id="alsoors-strand-video" muted controls></video>
         </div>
 
         <div class="panel">
-            <video id="csopak-strand-video" autoplay muted playsinline controls type="application/x-mpegURL"
-                src="https://s22.ipcamlive.com/streams/16qlomj6t3bezaazo/stream.m3u8"></video>
+            <video id="csopak-strand-video" muted controls></video>
         </div>
 
-        <!-- 
-                embedded   -> https://streamedian.com/saas/embed/?s=cnRzcDovL2FkbWluOkMzMDBocDZAMTk1LjIyOC4zLjkyL3N0cmVhbTE=&r=MTI4MHg3MjA=&w=d3NzOi8vc3RyZWFtZWRpYW4uY29tL2RlbW9uc3RyYXRpb24vd3Mv 
-                decoded    -> rtsp://admin:C300hp6@195.228.3.92/stream1
-                recoded    -> https://rtsp.me/embed/tF8FT4dN/
-        -->
         <div class="panel">
-            <video id="rtsp-dot-me-video" controls autoplay muted playsinline></video>
+            <video id="sosto-strand-video" muted controls></video>
         </div>
 
 </html>
