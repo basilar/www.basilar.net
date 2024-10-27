@@ -41,7 +41,7 @@
         }
     </style>
     <script>
-        function createVideoMonitor(videoElementId, targetUrl, checkInterval = 5000) {
+        function createVideoMonitor(videoElementId, fnToTargetURL, checkInterval = 5000) {
             let intervalId = null;
             let consecutiveErrors = 0;
             const MAX_ERRORS = 3;  // Maximum number of consecutive errors before forced reload
@@ -54,7 +54,7 @@
             }
 
             // Status check function
-            function checkVideoStatus() {
+            async function checkVideoStatus() {
                 const status = {
                     readyState: videoElement.readyState,
                     paused: videoElement.paused,
@@ -76,9 +76,10 @@
 
                 if (hasIssue) {
                     consecutiveErrors++;
+                    targetURL = await fnToTargetURL();
                     console.log('Video playback issue detected:', {
                         timestamp: new Date().toISOString(),
-                        targetUrl: targetUrl,
+                        targetURL: targetURL,
                         status: status
                     });
 
@@ -90,10 +91,12 @@
             }
 
             // Recovery function
-            function tryRecoverPlayback(status) {
+            async function tryRecoverPlayback(status) {
                 if (consecutiveErrors >= MAX_ERRORS) {
                     console.log('Multiple playback issues detected, reloading video source...');
-                    videoElement.src = targetUrl;
+                    targetURL = await fnToTargetURL();
+                    console.log('targetURL -> ' + targetURL);
+                    videoElement.src = targetURL;
                     consecutiveErrors = 0;
                 }
 
@@ -150,11 +153,11 @@
         // decoded    -> rtsp://admin:C300hp6@195.228.3.92/stream1
         // recoded    -> https://rtsp.me/embed/tF8FT4dN/
         function extractHashURLs(htmlContent) {
-            const timeUrlRegex = /https?:\/\/[^\s<>"']+\?[^\s<>"']*time=[^\s<>"']+/g; // regular expression to match URLs with time parameter
-            const matches = htmlContent.match(timeUrlRegex) || []; // all matches in the HTML content
-            const uniqueUrls = [...new Set(matches)]; // remove duplicate URLs
+            const timeURLRegex = /https?:\/\/[^\s<>"']+\?[^\s<>"']*time=[^\s<>"']+/g; // regular expression to match URLs with time parameter
+            const matches = htmlContent.match(timeURLRegex) || []; // all matches in the HTML content
+            const uniqueURLs = [...new Set(matches)]; // remove duplicate URLs
 
-            const hashURL = uniqueUrls[0];
+            const hashURL = uniqueURLs[0];
             console.log("hashURL -> " + hashURL)
             return hashURL;
         }
@@ -172,9 +175,9 @@
             }
         }
 
-        async function extractVideoUrl(uniqueId) {
-            const embedUrl = "https://rtsp.me/embed/" + uniqueId;
-            const response = await fetch(embedUrl);
+        async function extractVideoURL(uniqueId) {
+            const embedURL = "https://rtsp.me/embed/" + uniqueId;
+            const response = await fetch(embedURL);
             if (response.status === 200) {
                 const html = await response.text();
 
@@ -190,18 +193,24 @@
             }
         }
 
+        
         document.addEventListener('DOMContentLoaded', async function () {
-            const sosto_uniqueId = "tF8FT4dN"
-            const sosto_videoUrl = await extractVideoUrl(sosto_uniqueId);
+            const getSostoURL = async function() { 
+                const sosto_uniqueId = "tF8FT4dN"
+                return await extractVideoURL(sosto_uniqueId);
+            }
 
+            const getCsopakURL = async function () { return "https://s22.ipcamlive.com/streams/16qlomj6t3bezaazo/stream.m3u8" }
+            const getAlsoorsURL = async function () { return "https://s12infocam.infornax.hu/t2/nv/alsoors-strand/playlist.m3u8" }               
+            
             const webcams = [
-                ['sosto-strand-video', sosto_videoUrl, 3000],
-                ['csopak-strand-video', 'https://s22.ipcamlive.com/streams/16qlomj6t3bezaazo/stream.m3u8', 3000],
-                ['alsoors-strand-video', 'https://s12infocam.infornax.hu/t2/nv/alsoors-strand/playlist.m3u8', 3000]
+                ['sosto-strand-video', getSostoURL, 3000],
+                ['csopak-strand-video', getCsopakURL, 3000],
+                ['alsoors-strand-video', getAlsoorsURL, 3000]
             ];
 
-            webcams.forEach(([videoElementId, targetURL, refreshFrequency]) => {
-                const videoMonitor = createVideoMonitor(videoElementId, targetURL, refreshFrequency);
+            webcams.forEach(([videoElementId, fnToTargetURL, refreshFrequency]) => {
+                const videoMonitor = createVideoMonitor(videoElementId, fnToTargetURL, refreshFrequency);
                 videoMonitor.start();
             });
         });
